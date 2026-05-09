@@ -1,3 +1,6 @@
+import time
+
+start_time = time.perf_counter()
 data = [[10,20,30],[2,3,4]]
 target = [50,90,130]
 weight = [0] * (len(data)+1)
@@ -55,7 +58,9 @@ for train in range(epoch):
     for j in range(len(data)+1):
         weight[j] -= lr * grad[j]
         #print(weight[j])
-    print(f"MAE : {mae(data,target,weight)}")
+    print(f"[{train+1}] MAE : {mae(data,target,weight)}")
+end_time = time.perf_counter()
+print(f"Runtime: {end_time - start_time:.6f} seconds")
 print(weight)
         
     
