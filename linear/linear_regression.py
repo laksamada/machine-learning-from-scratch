@@ -1,86 +1,56 @@
 import sys
-import time
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
+    
+import time
+from metric import mae,mse
+import pandas as pd
+import numpy as np
 
-from metric.mae import mae
+df = pd.read_csv("dataset/example/rumah.csv")
 
 start_time = time.perf_counter()
 
-data = [[10, 20, 30], [2, 3, 4]]
-target = [50, 90, 130]
+X = df.drop(columns=["harga"]).to_numpy(dtype=float)
+y = df["harga"].to_numpy(dtype=float)
 
-weight = [0] * (len(data) + 1)
 
+w = np.zeros(X.shape[1])
+b = 0
 lr = 0.0001
 epoch = 100
+verbose = 10
 
 
-def predict(data, weight):
-    feature_count = len(data)
-    row_count = len(data[0])
-
-    preds = [0] * row_count
-
-    for i in range(row_count):
-        for j in range(feature_count):
-            preds[i] += data[j][i] * weight[j]
-
-        preds[i] += weight[-1]
-
-    return preds
-
+def predict(X, w,b):
+    return X @ w + b
 
 def compute_error(y_pred, target):
-    err = y_pred.copy()
+    return y_pred-target
 
-    for i in range(len(err)):
-        err[i] -= target[i]
+def compute_gradient(X,err):
+    n = len(err)
+    grad_w = (2 / n) * (X.T @ err)
+    grad_b = (2 / n) * err.sum()
+    return (grad_w,grad_b)
 
-    return err
-
-
-def compute_gradient(data, err):
-    feature_count = len(data)
-    row_count = len(err)
-
-    grad = [0] * (feature_count + 1)
-
-    for i in range(feature_count):
-        total = 0
-
-        for j in range(row_count):
-            total += err[j] * data[i][j]
-
-        grad[i] = (2 / row_count) * total
-
-    grad[-1] = (2 / row_count) * sum(err)
-
-    return grad
-
-
-def update_weight(weight, grad, lr):
-    for i in range(len(weight)):
-        weight[i] -= lr * grad[i]
-
+def update_weight(grad_w,grad_b,lr,w,b):
+    w -= lr * grad_w
+    b -= lr * grad_b
+    return b
 
 for train in range(epoch):
-    y_pred = predict(data, weight)
-
-    err = compute_error(y_pred, target)
-
-    grad = compute_gradient(data, err)
-
-    update_weight(weight, grad, lr)
-
-    y_pred = predict(data, weight)
-
-    print(f"[{train + 1}] MAE : {mae(y_pred, target)}")
-
+    y_pred = predict(X,w,b)
+    error = compute_error(y_pred,y)
+    grad_w,grad_b = compute_gradient(X,error)
+    b = update_weight(grad_w,grad_b,lr,w,b)
+    y_pred = predict(X,w,b)
+    if (train+1) % verbose == 0:
+        print(f"[{train+1}] MAE : {mae(y_pred,y)} | MSE : {mse(y_pred,y)} | RMSE : {np.sqrt(mse(y_pred,y))}")
+print(f"Final Score, MAE : {mae(y_pred,y)} | MSE : {mse(y_pred,y)} | RMSE : {np.sqrt(mse(y_pred,y))}")
 end_time = time.perf_counter()
 
-print(weight)
 print(f"Runtime: {end_time - start_time:.6f} seconds")
