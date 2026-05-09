@@ -1,61 +1,56 @@
-data = [[10,20,30],[2,3,4]]
-target = [50,90,130]
-weight = [0] * (len(data)+1)
+import sys
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+    
+import time
+from metric import mae,mse
+import pandas as pd
+import numpy as np
+
+df = pd.read_csv("dataset/example/rumah.csv")
+
+start_time = time.perf_counter()
+
+X = df.drop(columns=["harga"]).to_numpy(dtype=float)
+y = df["harga"].to_numpy(dtype=float)
+
+
+w = np.zeros(X.shape[1])
+b = 0
 lr = 0.0001
 epoch = 100
-def gradient(data,target,weight,idcol):
-    n = len(data)
-    row = len(data[0])
-    result = 0
-    if idcol == len(data):
-        for i in range(row):
-            y = 0
-            for j in range(n):
-                y += data[j][i] * weight[j]
-            y += weight[n]
-            y -= target[i]
-            result += y 
-            
-        result = 2 / row * result
-        return result
-    else:
-        for i in range(row):
-            y = 0
-            for j in range(n):
-                y += data[j][i] * weight[j]
-            y += weight[n]
-            y -= target[i]
-            y  *= data[idcol][i]
-            result +=  y
-        result = 2 / row * result
-        return result
-def mae(data,target,weight):
-    result = 0
-    n = len(data)
-    row = len(data[0])
-    for i in range(row):
-        y = 0
-        for j in range(n):
-            y += data[j][i] * weight[j]
-        y += weight[n]
-        y  = abs(y - target[i])
-        result += y 
-    result = result/ row
-    return result
-        
-n = len(data[0])
-#print(weight)
+verbose = 10
+
+
+def predict(X, w,b):
+    return X @ w + b
+
+def compute_error(y_pred, target):
+    return y_pred-target
+
+def compute_gradient(X,err):
+    n = len(err)
+    grad_w = (2 / n) * (X.T @ err)
+    grad_b = (2 / n) * err.sum()
+    return (grad_w,grad_b)
+
+def update_weight(grad_w,grad_b,lr,w,b):
+    w -= lr * grad_w
+    b -= lr * grad_b
+    return b
 
 for train in range(epoch):
-    grad = [0] * (len(data)+1)
-    for i in range(len(data)):
-        grad[i] = gradient(data,target,weight,i)
-        #print(gradient(data,target,weight,i))
-    grad[len(data)] = gradient(data,target,weight,len(data))
-    for j in range(len(data)+1):
-        weight[j] -= lr * grad[j]
-        #print(weight[j])
-    print(f"MAE : {mae(data,target,weight)}")
-print(weight)
-        
-    
+    y_pred = predict(X,w,b)
+    error = compute_error(y_pred,y)
+    grad_w,grad_b = compute_gradient(X,error)
+    b = update_weight(grad_w,grad_b,lr,w,b)
+    y_pred = predict(X,w,b)
+    if (train+1) % verbose == 0:
+        print(f"[{train+1}] MAE : {mae(y_pred,y)} | MSE : {mse(y_pred,y)} | RMSE : {np.sqrt(mse(y_pred,y))}")
+print(f"Final Score, MAE : {mae(y_pred,y)} | MSE : {mse(y_pred,y)} | RMSE : {np.sqrt(mse(y_pred,y))}")
+end_time = time.perf_counter()
+
+print(f"Runtime: {end_time - start_time:.6f} seconds")
